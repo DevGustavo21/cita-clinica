@@ -11,7 +11,8 @@ import type { Appointment } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/cron/reminders — ejecutado por Vercel Cron cada 15 min.
+ * GET /api/cron/reminders — disparado por un cron externo (p. ej. cron-job.org)
+ * cada 15 min, con respaldo diario de Vercel Cron (plan Hobby).
  *
  * Lógica de ventanas (tolerante a caídas del cron):
  *  - Recordatorio 24h: cuando faltan entre 2 y 25 horas y aún no se envió.
