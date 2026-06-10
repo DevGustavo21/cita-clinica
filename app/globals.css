@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Albert Sans", system-ui, sans-serif;
+
+  /* Paleta clínica: blanco niebla + verde quirúrgico profundo + acento salvia.
+     El rojizo se reserva con disciplina para "día saturado / cancelado". */
+  --bg: #f4f8f7;
+  --surface: #ffffff;
+  --ink: #122b28;
+  --soft: #5d7672;
+  --line: #dde8e5;
+  --primary: #0f6e63;
+  --primary-deep: #0a4f48;
+  --primary-tint: #e3f1ee;
+  --accent: #cfe7d8;
+  --danger: #d4564a;
+  --danger-tint: #fbe9e7;
+}
+
+::selection {
+  background: var(--primary);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
