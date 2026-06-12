@@ -6,7 +6,8 @@ import { formatDateLong, formatTime12 } from "@/lib/config";
 
 type FieldErrors = Record<string, string>;
 
-export default function BookingForm() {
+export default function BookingForm({ mode = "public" }: { mode?: "public" | "staff" }) {
+  const staff = mode === "staff";
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -35,7 +36,7 @@ export default function BookingForm() {
     setTime(null);
     setSlots(null);
     setSlotsLoading(true);
-    fetch(`/api/availability?date=${date}`)
+    fetch(`/api/availability?date=${date}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => setSlots(j.slots ?? []))
       .finally(() => setSlotsLoading(false));
@@ -63,7 +64,7 @@ export default function BookingForm() {
         setGlobalError(j.error ?? "No se pudo agendar.");
         if (res.status === 409 && date) {
           // El slot se ocupó mientras llenaba el formulario → refrescar horas
-          const r = await fetch(`/api/availability?date=${date}`);
+          const r = await fetch(`/api/availability?date=${date}`, { cache: "no-store" });
           setSlots((await r.json()).slots ?? []);
           setTime(null);
         }
@@ -80,21 +81,29 @@ export default function BookingForm() {
   if (done && date && time) {
     return (
       <div className="fade-up rounded-2xl border border-line bg-surface p-8 text-center shadow-card">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary-tint text-2xl">✓</div>
-        <h2 className="font-display text-2xl font-semibold">¡Cita agendada, {form.firstName}!</h2>
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-primary-tint text-primary">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2 className="font-display text-2xl font-semibold">
+          {staff ? `Cita registrada para ${form.firstName}` : `¡Cita agendada, ${form.firstName}!`}
+        </h2>
         <p className="mt-2 text-soft">
-          Te esperamos el <strong className="text-ink">{formatDateLong(date)}</strong> a las{" "}
+          {staff ? "Cita el " : "Te esperamos el "}
+          <strong className="text-ink">{formatDateLong(date)}</strong> a las{" "}
           <strong className="text-ink">{formatTime12(time)}</strong>.
         </p>
         <p className="mt-4 rounded-xl bg-bg p-4 text-sm text-soft">
-          Un día antes y 2 horas antes de tu cita recibirás un recordatorio en tu teléfono
-          con todos los detalles. Si necesitas cancelar, podrás hacerlo desde ese mismo mensaje.
+          {staff
+            ? "El paciente recibirá recordatorios automáticos un día antes y 2 horas antes de la cita, con la opción de cancelar desde el mismo mensaje."
+            : "Un día antes y 2 horas antes de tu cita recibirás un recordatorio en tu teléfono con todos los detalles. Si necesitas cancelar, podrás hacerlo desde ese mismo mensaje."}
         </p>
         <button
           onClick={() => { setDone(false); setDate(null); setTime(null); setForm({ firstName: "", lastName: "", age: "", guardianName: "", phone: "", email: "" }); }}
           className="mt-6 rounded-full border border-line px-5 py-2.5 text-sm font-semibold text-primary transition hover:border-primary"
         >
-          Agendar otra cita
+          {staff ? "Registrar otra cita" : "Agendar otra cita"}
         </button>
       </div>
     );
@@ -150,7 +159,7 @@ export default function BookingForm() {
       {/* Paso 2 — Datos del paciente */}
       <section className="fade-up rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-8">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.18em] text-primary">
-          Paso 2 · Tus datos
+          Paso 2 · {staff ? "Datos del paciente" : "Tus datos"}
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -183,7 +192,7 @@ export default function BookingForm() {
             <input id="phone" className={input} type="tel" placeholder="8888 8888" value={form.phone} onChange={set("phone")} />
             {err("phone")}
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label htmlFor="email" className={label}>Correo electrónico</label>
             <input id="email" className={input} type="email" placeholder="maria@correo.com" value={form.email} onChange={set("email")} />
             {err("email")}
@@ -193,11 +202,17 @@ export default function BookingForm() {
         {/* Resumen */}
         <div className="mt-6 rounded-xl bg-bg p-4 text-sm">
           {date && time ? (
-            <p>
-              📅 Tu cita: <strong className="capitalize">{formatDateLong(date)}</strong> · <strong>{formatTime12(time)}</strong>
+            <p className="flex items-center gap-2">
+              <svg className="shrink-0 text-primary" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+              </svg>
+              <span>{staff ? "Cita" : "Tu cita"}: <strong className="capitalize">{formatDateLong(date)}</strong> · <strong>{formatTime12(time)}</strong></span>
             </p>
           ) : (
-            <p className="text-soft">Selecciona un día y una hora para ver el resumen de tu cita.</p>
+            <p className="text-soft">Selecciona un día y una hora para ver el resumen de la cita.</p>
           )}
         </div>
 
@@ -211,10 +226,12 @@ export default function BookingForm() {
           disabled={submitting}
           className="mt-5 w-full rounded-full bg-primary px-6 py-3.5 text-sm font-bold text-white shadow-card transition hover:bg-primary-deep disabled:opacity-60"
         >
-          {submitting ? "Agendando…" : "Confirmar mi cita"}
+          {submitting ? "Agendando…" : staff ? "Agendar cita" : "Confirmar mi cita"}
         </button>
         <p className="mt-3 text-center text-xs text-soft">
-          Recibirás recordatorios automáticos antes de tu cita.
+          {staff
+            ? "El paciente recibirá recordatorios automáticos antes de la cita."
+            : "Recibirás recordatorios automáticos antes de tu cita."}
         </p>
       </section>
     </div>

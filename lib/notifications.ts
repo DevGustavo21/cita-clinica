@@ -45,6 +45,23 @@ export function reminder2hMessage(a: Appointment): string {
   ].join("\n");
 }
 
+export function rescheduleMessage(a: Appointment): string {
+  const cancelUrl = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/cancelar/${a.cancel_token}`;
+  return [
+    `Hola, ${a.first_name}. Tu cita en ${CLINIC.name} fue *reprogramada*. 🔄`,
+    "",
+    `Estos son los nuevos datos de tu cita:`,
+    `🩺 ${CLINIC.doctor}`,
+    `📅 ${formatDateLong(a.date)}`,
+    `🕐 ${formatTime12(a.time.slice(0, 5))}`,
+    `📍 ${CLINIC.address}`,
+    "",
+    `Si no puedes asistir, escribe *Cancelar* o usa este enlace: ${cancelUrl}`,
+    "",
+    `¡Te esperamos con gusto! 💙`,
+  ].join("\n");
+}
+
 export function cancelConfirmationMessage(a: Appointment): string {
   return [
     `Hola, ${a.first_name}. Tu cita del ${formatDateLong(a.date)} a las ${formatTime12(
@@ -63,7 +80,7 @@ export function cancelConfirmationMessage(a: Appointment): string {
 // (visible y verificable, ideal para desarrollo y demos a clientes).
 // ============================================================
 
-type NotificationType = "reminder_24h" | "reminder_2h" | "cancel_confirmation";
+type NotificationType = "reminder_24h" | "reminder_2h" | "cancel_confirmation" | "reschedule";
 
 export async function sendNotification(
   appointment: Appointment,

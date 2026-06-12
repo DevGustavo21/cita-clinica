@@ -8,15 +8,15 @@ export default function HomePage() {
       <header className="border-b border-line bg-surface/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-white">+</span>
+            <span className="grid h-9 w-9 place-items-center rounded-xl border-2 border-dashed border-line bg-primary-tint font-display text-lg font-bold text-primary">+</span>
             <div className="leading-tight">
-              <p className="font-display text-base font-semibold">{CLINIC.name}</p>
+              <p className="font-display text-base font-semibold">Aquí puede ir tu logo</p>
               <p className="text-xs text-soft">{CLINIC.tagline}</p>
             </div>
           </div>
-          <a href={`tel:${CLINIC.phone.replace(/\s/g, "")}`} className="hidden text-sm font-semibold text-primary sm:block">
-            {CLINIC.phone}
-          </a>
+          <button type="button" className="hidden rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary sm:block">
+            Aquí puede ir tu número
+          </button>
         </div>
       </header>
 
@@ -38,7 +38,13 @@ export default function HomePage() {
         <BookingForm />
 
         <footer className="mt-14 border-t border-line pt-6 text-sm text-soft">
-          <p>📍 {CLINIC.address}</p>
+          <p className="flex items-center gap-2">
+            <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {CLINIC.address}
+          </p>
           <p className="mt-1">Lunes a sábado · 8:00 AM – 5:00 PM</p>
         </footer>
       </div>

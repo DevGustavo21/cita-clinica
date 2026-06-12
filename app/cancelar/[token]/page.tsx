@@ -37,7 +37,7 @@ export default function CancelPage({ params }: { params: { token: string } }) {
         {state === "done" && (
           <>
             <p className="mt-4 rounded-xl bg-primary-tint px-4 py-3 text-sm font-medium text-primary-deep">
-              Tu cita fue cancelada y el espacio quedó libre. ✅
+              Tu cita fue cancelada y el espacio quedó libre.
             </p>
             <a href="/" className="mt-4 block text-sm font-semibold text-primary">Agendar una nueva cita</a>
           </>

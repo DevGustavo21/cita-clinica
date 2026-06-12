@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { daySlots, isClosedDay, todayStr, nowInManagua, SCHEDULE } from "@/lib/config";
-import { cancelConfirmationMessage, sendNotification } from "@/lib/notifications";
+import { cancelConfirmationMessage, rescheduleMessage, sendNotification } from "@/lib/notifications";
 import { isDoctor } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/appointments — agendar (público, validación completa en backend)
- */
+/** POST /api/appointments — agendar (validación completa en backend). */
 export async function POST(req: NextRequest) {
   let body: any;
   try {
@@ -50,7 +48,7 @@ export async function POST(req: NextRequest) {
     .toISOString()
     .slice(0, 10);
   if (date > horizon)
-    return NextResponse.json({ error: "Solo se puede agendar dentro de los próximos 60 días." }, { status: 400 });
+    return NextResponse.json({ error: "Solo se puede agendar dentro del rango permitido." }, { status: 400 });
   if (!daySlots().includes(time))
     return NextResponse.json({ error: "Esa hora no es parte del horario de atención." }, { status: 400 });
   if (date === todayStr() && Number(time.slice(0, 2)) <= nowInManagua().getUTCHours())
@@ -58,7 +56,6 @@ export async function POST(req: NextRequest) {
 
   const db = supabaseAdmin();
 
-  // ¿El slot está libre? (verificación + el índice único como red de seguridad)
   const { count } = await db
     .from("appointments")
     .select("id", { count: "exact", head: true })
@@ -88,7 +85,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
-    // 23505 = violación del índice único → otro usuario ganó el slot
     if ((error as any).code === "23505") {
       return NextResponse.json(
         { error: "Esa hora acaba de ser tomada. Elige otra disponible." },
@@ -102,9 +98,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, appointment: data }, { status: 201 });
 }
 
-/**
- * GET /api/appointments?start=YYYY-MM-DD&end=YYYY-MM-DD — solo doctor
- */
+/** GET /api/appointments?start=YYYY-MM-DD&end=YYYY-MM-DD — solo doctor. */
 export async function GET(req: NextRequest) {
   if (!isDoctor(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
@@ -131,11 +125,10 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * PATCH /api/appointments — cancelar
+ * PATCH /api/appointments
  *  - { cancelToken } → cancelación del paciente (enlace del mensaje)
  *  - { id, action: "cancel" | "complete" } → acción del doctor
- * Cancelar libera el slot automáticamente: el índice único solo aplica
- * a citas con status 'scheduled'.
+ *  - { id, action: "reschedule", date, time } → reprogramar (doctor)
  */
 export async function PATCH(req: NextRequest) {
   let body: any;
@@ -161,6 +154,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  // Acciones del doctor (requieren sesión)
   if (body.id && (body.action === "cancel" || body.action === "complete")) {
     if (!isDoctor(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const patch =
@@ -174,6 +168,67 @@ export async function PATCH(req: NextRequest) {
       .eq("status", "scheduled");
     if (error) return NextResponse.json({ error: "No se pudo actualizar" }, { status: 500 });
     return NextResponse.json({ ok: true });
+  }
+
+  // Reprogramar (cambiar fecha/hora) — solo doctor
+  if (body.id && body.action === "reschedule") {
+    if (!isDoctor(req)) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+    const date = String(body.date ?? "").trim();
+    const time = String(body.time ?? "").trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+      return NextResponse.json({ error: "Selecciona un día válido." }, { status: 400 });
+    if (!/^\d{2}:\d{2}$/.test(time))
+      return NextResponse.json({ error: "Selecciona una hora válida." }, { status: 400 });
+    if (date < todayStr())
+      return NextResponse.json({ error: "Ese día ya pasó." }, { status: 400 });
+    if (isClosedDay(date))
+      return NextResponse.json({ error: "La clínica no atiende ese día." }, { status: 400 });
+    const horizon = new Date(Date.now() + SCHEDULE.bookingHorizonDays * 86400_000)
+      .toISOString()
+      .slice(0, 10);
+    if (date > horizon)
+      return NextResponse.json({ error: "Solo se puede agendar dentro del rango permitido." }, { status: 400 });
+    if (!daySlots().includes(time))
+      return NextResponse.json({ error: "Esa hora no es parte del horario de atención." }, { status: 400 });
+    if (date === todayStr() && Number(time.slice(0, 2)) <= nowInManagua().getUTCHours())
+      return NextResponse.json({ error: "Esa hora ya pasó hoy." }, { status: 400 });
+
+    const { count } = await db
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("date", date)
+      .eq("time", time)
+      .eq("status", "scheduled")
+      .neq("id", body.id);
+    if ((count ?? 0) >= SCHEDULE.capacityPerSlot) {
+      return NextResponse.json(
+        { error: "Esa hora ya está ocupada. Elige otra disponible." },
+        { status: 409 }
+      );
+    }
+
+    const { data, error } = await db
+      .from("appointments")
+      .update({ date, time, reminder_24h_sent_at: null, reminder_2h_sent_at: null })
+      .eq("id", body.id)
+      .eq("status", "scheduled")
+      .select()
+      .single();
+
+    if (error || !data) {
+      if ((error as any)?.code === "23505") {
+        return NextResponse.json(
+          { error: "Esa hora ya está ocupada. Elige otra disponible." },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ error: "No se pudo reprogramar." }, { status: 500 });
+    }
+
+    await sendNotification(data, "reschedule", rescheduleMessage(data));
+    return NextResponse.json({ ok: true, appointment: data });
   }
 
   return NextResponse.json({ error: "Petición inválida" }, { status: 400 });

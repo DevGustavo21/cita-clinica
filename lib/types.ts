@@ -24,3 +24,39 @@ export interface DayAvailability {
   available: number;
   total: number;
 }
+
+export interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string | null; // YYYY-MM-DD
+  gender: string | null;
+  email: string | null;
+  phone: string | null;
+  photo_url: string | null;
+  address: string | null;
+  blood_type: string | null;
+  allergies: string | null;
+  chronic_conditions: string | null;
+  current_medications: string | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicalRecord {
+  id: string;
+  patient_id: string;
+  visit_date: string; // YYYY-MM-DD
+  reason: string | null;
+  diagnosis: string | null;
+  weight_kg: number | null;
+  height_cm: number | null;
+  blood_pressure: string | null;
+  observations: string | null;
+  recommendations: string | null;
+  created_at: string;
+  updated_at: string;
+}

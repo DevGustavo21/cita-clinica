@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import {
-  daySlots,
-  isClosedDay,
-  nowInManagua,
-  todayStr,
-  SCHEDULE,
-} from "@/lib/config";
+import { daySlots, isClosedDay, nowInManagua, todayStr, SCHEDULE } from "@/lib/config";
 import type { DayAvailability } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,18 +8,16 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/availability?month=YYYY-MM  → estado de cada día del mes
  * GET /api/availability?date=YYYY-MM-DD → horas disponibles de ese día
- *
- * Toda la lógica de disponibilidad vive en el servidor: el cliente
- * solo pinta lo que el backend declara como libre/ocupado.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const month = searchParams.get("month");
   const date = searchParams.get("date");
 
+  const noStore = { headers: { "Cache-Control": "no-store, max-age=0" } };
   try {
-    if (date) return NextResponse.json({ slots: await availableSlotsFor(date) });
-    if (month) return NextResponse.json({ days: await monthAvailability(month) });
+    if (date) return NextResponse.json({ slots: await availableSlotsFor(date) }, noStore);
+    if (month) return NextResponse.json({ days: await monthAvailability(month) }, noStore);
     return NextResponse.json({ error: "Falta ?month= o ?date=" }, { status: 400 });
   } catch (e: any) {
     console.error(e);
@@ -69,7 +61,6 @@ async function monthAvailability(month: string): Promise<Record<string, DayAvail
     const closed = isClosedDay(dateStr) || dateStr > horizon;
     const past = dateStr < today;
     const taken = booked.get(dateStr)?.size ?? 0;
-    // Para "hoy", las horas que ya pasaron también cuentan como no disponibles
     let effectiveTotal = totalSlots;
     if (dateStr === today) {
       const nowH = nowInManagua().getUTCHours();

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CLINIC, daySlots, formatDateLong, formatTime12, greeting, todayStr } from "@/lib/config";
 import type { Appointment } from "@/lib/types";
 import AppointmentModal from "@/components/AppointmentModal";
+import DoctorHeader from "@/components/DoctorHeader";
 
 const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -70,9 +71,16 @@ export default function DoctorDashboard() {
     load();
   }
 
-  async function logout() {
-    await fetch("/api/auth", { method: "DELETE" });
-    router.push("/doctor/login");
+  async function reschedule(id: string, date: string, time: string) {
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "reschedule", date, time }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: j.error ?? "No se pudo reprogramar." };
+    await load();
+    return { ok: true };
   }
 
   const prev = () => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); };
@@ -84,21 +92,7 @@ export default function DoctorDashboard() {
 
   return (
     <main className="min-h-screen pb-16">
-      {/* Barra superior */}
-      <header className="sticky top-0 z-10 border-b border-line bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-white">+</span>
-            <div className="leading-tight">
-              <p className="font-display text-sm font-semibold sm:text-base">{CLINIC.doctor}</p>
-              <p className="text-xs text-soft">{CLINIC.name} · Panel de citas</p>
-            </div>
-          </div>
-          <button onClick={logout} className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-soft transition hover:border-danger hover:text-danger">
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
+      <DoctorHeader />
 
       <div className="mx-auto max-w-6xl px-5 pt-8">
         {/* Bienvenida */}
@@ -109,17 +103,25 @@ export default function DoctorDashboard() {
               {greeting()}, {CLINIC.doctor}
             </h1>
           </div>
-          <Link
-            href="/doctor/pendientes"
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-card transition hover:bg-primary-deep"
-          >
-            Citas pendientes de hoy
-            {todayPending.length > 0 && (
-              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white px-1.5 text-xs font-bold text-primary-deep">
-                {todayPending.length}
-              </span>
-            )}
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/doctor/agendar"
+              className="inline-flex items-center gap-2 rounded-full border border-primary px-5 py-2.5 text-sm font-bold text-primary transition hover:bg-primary-tint"
+            >
+              + Agendar
+            </Link>
+            <Link
+              href="/doctor/pendientes"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-card transition hover:bg-primary-deep"
+            >
+              Citas pendientes de hoy
+              {todayPending.length > 0 && (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white px-1.5 text-xs font-bold text-primary-deep">
+                  {todayPending.length}
+                </span>
+              )}
+            </Link>
+          </div>
         </section>
 
         {/* Calendario completo */}
@@ -160,14 +162,15 @@ export default function DoctorDashboard() {
                   const dateStr = `${monthKey}-${String(d).padStart(2, "0")}`;
                   const appts = (byDay.get(dateStr) ?? []).filter((a) => a.status === "scheduled");
                   const isToday = dateStr === today;
+                  const isPast = dateStr < today;
                   return (
                     <button
                       key={dateStr}
                       onClick={() => { setSelectedDay(dateStr); setView("list"); }}
-                      className={`min-h-20 border-b border-r border-line/60 p-1.5 text-left align-top transition hover:bg-primary-tint/40 sm:min-h-28 sm:p-2 ${isToday ? "bg-primary-tint/50" : ""}`}
+                      className={`min-h-20 border-b border-r border-line/60 p-1.5 text-left align-top transition hover:bg-primary-tint/40 sm:min-h-28 sm:p-2 ${isToday ? "bg-primary-tint/50" : isPast ? "bg-bg/60" : ""}`}
                     >
-                      <span className={`text-xs font-bold ${isToday ? "text-primary-deep" : "text-soft"}`}>{d}</span>
-                      <div className="mt-1 space-y-1">
+                      <span className={`text-xs font-bold ${isToday ? "text-primary-deep" : isPast ? "text-soft/40 line-through" : "text-soft"}`}>{d}</span>
+                      <div className={`mt-1 space-y-1 ${isPast ? "opacity-50" : ""}`}>
                         {appts.slice(0, 3).map((a) => (
                           <span key={a.id} className="block truncate rounded bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-white sm:text-xs">
                             {a.time.slice(0, 5)} {a.first_name} {a.last_name}
@@ -247,6 +250,7 @@ export default function DoctorDashboard() {
             await action(detail.id, kind);
             setDetail(null);
           }}
+          onReschedule={(date, time) => reschedule(detail.id, date, time)}
         />
       )}
     </main>

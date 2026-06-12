@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 
 export const DOCTOR_COOKIE = "cvp_doctor";
 
-/** Sesión simple por cookie httpOnly comparada contra DOCTOR_ACCESS_KEY */
+/** ¿La petición tiene una sesión de doctor válida? */
 export function isDoctor(req: NextRequest): boolean {
-  const key = process.env.DOCTOR_ACCESS_KEY;
-  if (!key) return false;
-  return req.cookies.get(DOCTOR_COOKIE)?.value === key;
+  const token = req.cookies.get(DOCTOR_COOKIE)?.value;
+  return !!token && !!process.env.DOCTOR_ACCESS_KEY && token === process.env.DOCTOR_ACCESS_KEY;
 }

@@ -33,7 +33,7 @@ export default function AvailabilityCalendar({ selected, onSelect }: Props) {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    fetch(`/api/availability?month=${monthKey}`)
+    fetch(`/api/availability?month=${monthKey}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => alive && setDays(j.days ?? {}))
       .finally(() => alive && setLoading(false));

@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CLINIC, formatDateLong, formatTime12, greeting, todayStr } from "@/lib/config";
+import { formatDateLong, formatTime12, greeting, todayStr } from "@/lib/config";
 import type { Appointment } from "@/lib/types";
 import AppointmentModal from "@/components/AppointmentModal";
+import DoctorHeader from "@/components/DoctorHeader";
 
 export default function PendingAppointments() {
   const router = useRouter();
@@ -39,33 +40,34 @@ export default function PendingAppointments() {
     load();
   }
 
-  async function logout() {
-    await fetch("/api/auth", { method: "DELETE" });
-    router.push("/doctor/login");
+  async function reschedule(id: string, date: string, time: string) {
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "reschedule", date, time }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: j.error ?? "No se pudo reprogramar." };
+    await load();
+    return { ok: true };
   }
 
   return (
     <main className="min-h-screen pb-16">
-      {/* Barra superior */}
-      <header className="sticky top-0 z-10 border-b border-line bg-surface/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary font-display text-lg font-bold text-white">+</span>
-            <div className="leading-tight">
-              <p className="font-display text-sm font-semibold sm:text-base">{CLINIC.doctor}</p>
-              <p className="text-xs text-soft">{CLINIC.name} · Panel de citas</p>
-            </div>
-          </div>
-          <button onClick={logout} className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-soft transition hover:border-danger hover:text-danger">
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
+      <DoctorHeader />
 
       <div className="mx-auto max-w-6xl px-5 pt-8">
-        <Link href="/doctor" className="inline-flex items-center gap-1.5 text-sm font-semibold text-soft transition hover:text-primary">
-          ‹ Volver al calendario
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/doctor" className="inline-flex items-center gap-1.5 text-sm font-semibold text-soft transition hover:text-primary">
+            ‹ Volver al calendario
+          </Link>
+          <Link
+            href="/doctor/agendar"
+            className="inline-flex items-center gap-2 rounded-full border border-primary px-4 py-2 text-sm font-bold text-primary transition hover:bg-primary-tint"
+          >
+            + Agendar
+          </Link>
+        </div>
 
         <section className="fade-up mt-4">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary capitalize">{greeting()} · {formatDateLong(today)}</p>
@@ -123,6 +125,7 @@ export default function PendingAppointments() {
             await action(detail.id, kind);
             setDetail(null);
           }}
+          onReschedule={(date, time) => reschedule(detail.id, date, time)}
         />
       )}
     </main>
